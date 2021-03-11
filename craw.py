@@ -3,23 +3,17 @@ import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
-# resp = requests.get('https://hocbaionha.com/?courses=1', headers=headers)
-#
-# soup = BeautifulSoup(resp.text, 'html.parser')
-# for item in soup.select('.course-group-slick > .course-item > a'):
-#     print(item.get('href'))
-#     with open('course.txt', 'a') as f:
-#         f.write(item.get('href') + '\n')
-
 if __name__ == '__main__':
     headers = {
         'cookie': 'MoodleSession=ejbhbvgl9jdm184s5ogvpm0rrj'
     }
-    with open('course.txt', 'r') as f:
+
+    with open('course.json', 'r') as f:
         data = []
-        for course_href in f.readlines():
+        courses = json.load(f)
+        for course_href in courses:
             course_dict = {
-                'url': urljoin('https://hocbaionha.com', course_href.strip()),
+                'url': urljoin('https://hocbaionha.com', course_href['url']),
                 'course_items': []
             }
             resp = requests.get(course_dict['url'], headers=headers)
