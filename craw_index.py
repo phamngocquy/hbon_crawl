@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 
 if __name__ == '__main__':
     headers = {
-        'cookie': 'MoodleSession=ejbhbvgl9jdm184s5ogvpm0rrj'
+        'cookie': 'MoodleSession=fl9ldqjbuo8iglas52igvmltcg'
     }
 
     with open('course.json', 'r') as f:
@@ -13,8 +13,8 @@ if __name__ == '__main__':
         courses = json.load(f)
         for course_href in courses:
             course_dict = {
+                'name': course_href['name'],
                 'url': urljoin('https://hocbaionha.com', course_href['url']),
-                'course_items': []
             }
             resp = requests.get(course_dict['url'], headers=headers)
             soup = BeautifulSoup(resp.text, 'html.parser')
@@ -23,10 +23,10 @@ if __name__ == '__main__':
                 continue
             header = course_block.select_one('div > a')
             course_item = {
-                'url': urljoin('https://hocbaionha.com', header.get('href')),
+                'detail_url': urljoin('https://hocbaionha.com', header.get('href')),
                 'lessons': []
             }
-            resp = requests.get(course_item['url'], headers=headers)
+            resp = requests.get(course_item['detail_url'], headers=headers)
             soup = BeautifulSoup(resp.text, 'html.parser')
             for topic in soup.select('#region-main > div > div > ul > li'):
                 section = topic.select_one('.content > h3')
@@ -46,7 +46,7 @@ if __name__ == '__main__':
                         'url': url
                     })
                 course_item['lessons'].append(section_dict)
-            course_dict['course_items'].append(course_item)
+            course_dict.update(course_item)
             data.append(course_dict)
         with open('index.json', 'w') as fd:
             fd.write(json.dumps(data))
