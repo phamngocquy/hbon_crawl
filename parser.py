@@ -1,17 +1,21 @@
-import mimetypes
 import os
 import glob
-from io import BytesIO
-import json
-import logging
-import random
-import string
-from copy import copy
 import boto3
+import string
+import random
+import mimetypes
+from io import BytesIO
+from copy import copy
 
 import requests
 from enum import Enum
 from bs4 import BeautifulSoup
+
+REMOVE_ATTRIBUTES = [
+    'lang', 'language', 'onmouseover', 'onmouseout', 'script', 'style', 'font',
+    'dir', 'face', 'size', 'color', 'style', 'class', 'width', 'height', 'hspace',
+    'border', 'valign', 'align', 'background', 'bgcolor', 'cellpadding', 'cellspacing',
+    'class', 'id', 'name', 'type', 'value', 'for', 'disabled', 'class']
 
 
 class CourseType(Enum):
@@ -19,7 +23,7 @@ class CourseType(Enum):
 
 
 class Parser:
-    def __init__(self, session_key):
+    def __init__(self, session_key=None):
         self.session_key = session_key
         self._headers = {
             'cookie': f'MoodleSession={self.session_key};'
@@ -36,21 +40,27 @@ class Parser:
                 self.raw_data.append((file, CourseType.MATH))
 
     def _parser_math(self, file):
-        file = '/Users/phamngocquy/PycharmProjects/hbon/data/dai_so_7/_11_tap_hop_q_cac_so_huu_ti/luyen_tap_tap_hop_q_cac_so_huu_ti_de_thi.html'
+        file = '/Users/phamngocquy/PycharmProjects/hbon/data/so_hoc_6/_11_tap_hop/luyen_tap_tap_hop_de_thi.html'
         content = open(file, 'r')
         soup = BeautifulSoup(content.read(), 'html.parser')
         if os.path.basename(file).startswith('luyen_tap'):
-            questions = soup.select("div[id^=question-]")
-
-            # parser qtext
-            for item in questions:
-                # question - qtext
+            questions_data, tips_data = [], []
+            questions_tag = soup.select("div[id^=question-]")
+            for item in questions_tag:
                 qtext = item.select_one("div[class=qtext]")
-
-                # question
-                pass
-
-            pass
+                try:
+                    answers = [[item.text.strip(), False] for item in
+                               item.select_one("div[class=answer]").select("div[class^=r]") if item.text]
+                    r_answers = [item.text for item in item.select("div[class=rightanswer]")]
+                    for answer in answers:
+                        if any(answer[0] in r_item for r_item in r_answers):
+                            answer[1] = True
+                    questions_data.append((qtext, answers))
+                except AttributeError:
+                    tips_data.append(qtext)
+            print(len(questions_data))
+            print(len(tips_data))
+            print(tips_data)
 
     def _qtext_parser(self):
         pass
@@ -83,10 +93,17 @@ class Parser:
                                                          "ContentType": content_type})
         return f'https://{bucket_name}.s3.amazonaws.com/{fpath}'
 
+    @staticmethod
+    def clean_html(html_tag):
+        for attribute in REMOVE_ATTRIBUTES:
+            for tag in html_tag.find_all(attrs={attribute: True}):
+                del tag[attribute]
+        return html_tag
+
     def run(self):
         self.add_course_type()
         self.parser()
 
 
 if __name__ == '__main__':
-    pass
+    Parser().run()
