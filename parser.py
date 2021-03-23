@@ -1,7 +1,14 @@
+import mimetypes
 import os
 import glob
+from io import BytesIO
 import json
 import logging
+import random
+import string
+from copy import copy
+import boto3
+
 import requests
 from enum import Enum
 from bs4 import BeautifulSoup
@@ -54,10 +61,27 @@ class Parser:
                 self._parser_math(item[0])
                 break
 
-    def store_image_2s3(self, image_url):
-        headers = self._headers
+    def store_image_2s3(self, bucket_name, image_url):
+
+        # dload image file
+        headers = copy(self._headers)
         resp = requests.get(url=image_url, headers=headers)
-        pass
+
+        # fpath
+        image_suffix = image_url[image_url.rfind('.'):]
+        image_name = ''.join(random.choices(
+            string.ascii_uppercase + string.digits, k=8)
+        ) + image_suffix
+
+        fpath = f'/{image_name}'
+        content_type = mimetypes.guess_type(fpath)[0]
+        # upload object to s3
+        image_obj = BytesIO(resp.content)
+        s3 = boto3.resource(service_name='s3')
+        s3.Bucket(bucket_name).upload_fileobj(Fileobj=image_obj, Key=fpath,
+                                              ExtraArgs={"ACL": "public-read",
+                                                         "ContentType": content_type})
+        return f'https://{bucket_name}.s3.amazonaws.com/{fpath}'
 
     def run(self):
         self.add_course_type()
@@ -65,4 +89,4 @@ class Parser:
 
 
 if __name__ == '__main__':
-    Parser(None).run()
+    pass
