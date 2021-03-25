@@ -13,8 +13,10 @@ from bs4 import BeautifulSoup
 
 REMOVE_ATTRIBUTES = [
     'lang', 'language', 'onmouseover', 'onmouseout', 'script', 'style', 'font',
-    'dir', 'face', 'size', 'color', 'style', 'class', 'width', 'height', 'hspace',
-    'border', 'valign', 'align', 'background', 'bgcolor', 'cellpadding', 'cellspacing',
+    'dir', 'face', 'size', 'color', 'style', 'class', 'width', 'height',
+    'hspace',
+    'border', 'valign', 'align', 'background', 'bgcolor', 'cellpadding',
+    'cellspacing',
     'class', 'id', 'name', 'type', 'value', 'for', 'disabled', 'class']
 
 
@@ -29,46 +31,60 @@ class Parser:
             'cookie': f'MoodleSession={self.session_key};'
         }
         self.raw_data = []
-        self.root_path = '/Users/phamngocquy/PycharmProjects/hbon/data/*/*/*'
+        self.root_path = 'data/*/*/*'
 
     def add_course_type(self):
         files = glob.glob(self.root_path)
         for file in files:
-            course_name = file.split(os.sep)[6]
+            course_name = file.split(os.sep)[1]
             if course_name.startswith('dai_so') \
                     or course_name.startswith('so_hoc'):
                 self.raw_data.append((file, CourseType.MATH))
 
-    def _parser_math(self, file):
-        file = '/Users/phamngocquy/PycharmProjects/hbon/data/so_hoc_6/_11_tap_hop/luyen_tap_tap_hop_de_thi.html'
-        content = open(file, 'r')
-        soup = BeautifulSoup(content.read(), 'html.parser')
-        if os.path.basename(file).startswith('luyen_tap'):
-            questions_data, tips_data = [], []
-            questions_tag = soup.select("div[id^=question-]")
-            for item in questions_tag:
-                qtext = item.select_one("div[class=qtext]")
-                try:
-                    answers = [[item.text.strip(), False] for item in
-                               item.select_one("div[class=answer]").select("div[class^=r]") if item.text]
-                    r_answers = [item.text for item in item.select("div[class=rightanswer]")]
-                    for answer in answers:
-                        if any(answer[0] in r_item for r_item in r_answers):
-                            answer[1] = True
-                    questions_data.append((qtext, answers))
-                except AttributeError:
+    @staticmethod
+    def _parser_math_quiz(file):
+        soup = BeautifulSoup(open(file, 'r').read(), 'html.parser')
+        questions_data, tips_data = [], []
+        questions_tag = soup.select("div[id^=question-]")
+        for item in questions_tag:
+            qtext = item.select_one("div[class=qtext]")
+            try:
+                answers = [[item.text.strip(), False] for item in
+                           item.select_one("div[class=answer]").select(
+                               "div[class^=r]") if item.text]
+                r_answers = [item.text for item in
+                             item.select("div[class=rightanswer]")]
+                for answer in answers:
+                    if any(answer[0] in r_item for r_item in r_answers):
+                        answer[1] = True
+                questions_data.append((qtext, answers))
+            except AttributeError:
+                if qtext:
                     tips_data.append(qtext)
-            print(len(questions_data))
-            print(len(tips_data))
-            print(tips_data)
+        for item in questions_data:
+            print(item)
+            print('##########')
+        print(tips_data)
 
-    def _qtext_parser(self):
-        pass
+    @staticmethod
+    def _parser_math_theory(file):
+        soup = BeautifulSoup(open(file, 'r').read(), 'html.parser')
+        item = soup.select_one('div[class=no-overflow]')
+        with open('page.html', 'w') as f:
+            f.write(str(item))
+
+    def parser_math(self, file):
+        if os.path.basename(file).startswith('luyen_tap'):
+            self._parser_math_quiz(file)
+        elif os.path.basename(file).startswith('ly_thuyet'):
+            self._parser_math_theory(file)
 
     def parser(self):
         for item in self.raw_data:
             if item[1] == CourseType.MATH:
-                self._parser_math(item[0])
+                self.parser_math(
+                    '/home/qpham/IProject/hbon_crawl/data/dai_so_9/_25_he_so_goc_cua_duong_thang_yaxb_a_neq_0/ly_thuyet_he_so_goc_cua_duong_thang_yaxb_a_neq_0_wiki.html')
+                # self.parser_math(item[0])
                 break
 
     def store_image_2s3(self, bucket_name, image_url):
@@ -85,6 +101,7 @@ class Parser:
 
         fpath = f'/{image_name}'
         content_type = mimetypes.guess_type(fpath)[0]
+
         # upload object to s3
         image_obj = BytesIO(resp.content)
         s3 = boto3.resource(service_name='s3')
